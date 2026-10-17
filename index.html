@@ -1,0 +1,442 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>日本語の文字コードとトークン化</title>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background-color: #f4f8ff;
+            color: #24334a;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #2056a5;
+        }
+
+        h2 {
+            color: #2878d0;
+            margin-top: 35px;
+        }
+
+        textarea {
+            width: 90%;
+            max-width: 750px;
+            height: 90px;
+            padding: 12px;
+            font-size: 20px;
+            border: 2px solid #8aaddd;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 15px;
+            font-size: 17px;
+            background-color: #2878d0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #15549b;
+        }
+
+        .section {
+            max-width: 950px;
+            margin: 25px auto;
+            padding: 18px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px #dce5f0;
+        }
+
+        .token-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px auto;
+        }
+
+        .token {
+            background-color: #d9eaff;
+            border: 2px solid #4285d4;
+            border-radius: 8px;
+            padding: 10px 14px;
+            min-width: 65px;
+        }
+
+        .token-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: #174b8a;
+        }
+
+        .token-id {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .character {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 5px;
+            padding: 10px;
+            min-width: 65px;
+            background-color: #e0f5e8;
+            border: 2px solid #39a66b;
+            border-radius: 8px;
+        }
+
+        .character-symbol {
+            font-size: 26px;
+            font-weight: bold;
+            color: #187344;
+        }
+
+        .character-number {
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px auto;
+            background-color: white;
+        }
+
+        th, td {
+            border: 1px solid #b5c7dc;
+            padding: 10px;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #d9eaff;
+        }
+
+        .count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d33;
+        }
+
+        .explanation {
+            max-width: 800px;
+            margin: 25px auto;
+            padding: 20px;
+            text-align: left;
+            background-color: white;
+            border-radius: 10px;
+            line-height: 1.9;
+        }
+
+        .note {
+            color: #555;
+            font-size: 14px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>日本語の文字コードとトークン化</h1>
+
+    <p>
+        日本語を入力して、文字が数字になる仕組みと、
+        AIが文章をトークンに分割する仕組みを学びましょう。
+    </p>
+
+    <div class="section">
+
+        <h2>① 日本語の文章を入力</h2>
+
+        <textarea id="inputText">私はAIでプログラミングを学びます。</textarea>
+
+        <br>
+
+        <button onclick="analyzeText()">変換して表示</button>
+
+    </div>
+
+    <div class="section">
+
+        <h2>② 文字の数字化（Unicode）</h2>
+
+        <p>
+            一文字ずつ、Unicode番号を表示します。
+        </p>
+
+        <div id="characterArea"></div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>順番</th>
+                        <th>文字</th>
+                        <th>10進数</th>
+                        <th>16進数</th>
+                    </tr>
+                </thead>
+
+                <tbody id="characterTable"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <div class="section">
+
+        <h2>③ トークン化</h2>
+
+        <p>
+            文章を文字の種類などに基づいて分割します。
+        </p>
+
+        <div id="tokenArea" class="token-area"></div>
+
+        <p>
+            トークン数：
+            <span id="tokenCount" class="count">0</span>
+        </p>
+
+    </div>
+
+    <div class="section">
+
+        <h2>④ トークンと数字のID</h2>
+
+        <p>
+            この教材では、トークンに順番に仮のIDを付けます。
+        </p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>順番</th>
+                        <th>トークン</th>
+                        <th>仮のID</th>
+                    </tr>
+                </thead>
+
+                <tbody id="tokenTable"></tbody>
+            </table>
+        </div>
+
+        <p class="note">
+            ※ このIDは説明用の番号です。
+            実際のAIが使うトークンIDとは異なります。
+        </p>
+
+    </div>
+
+    <div class="explanation">
+
+        <h2>⑤ 学習のまとめ</h2>
+
+        <h3>文字の数字化とは？</h3>
+
+        <p>
+            Unicodeは、文字に番号を割り当てるための規格です。
+            例えば「日」には、10進数で26085、
+            16進数でU+65E5という番号が割り当てられています。
+        </p>
+
+        <h3>トークン化とは？</h3>
+
+        <p>
+            AIは文章を、トークンと呼ばれる小さな単位に分割して
+            処理します。トークンは一文字とは限らず、
+            単語や単語の一部分などになることもあります。
+        </p>
+
+        <h3>二つの違い</h3>
+
+        <p>
+            文字コードは文字に対応する番号です。
+            一方、トークンIDはAIのトークナイザーが
+            分割した単位に対応する番号です。
+            この二つは同じものではありません。
+        </p>
+
+        <p>
+            また、コンピュータが文字を保存するときには、
+            UTF-8などの方式で文字をバイト列として表現します。
+            Unicode番号そのものと保存されるバイト列も区別しましょう。
+        </p>
+
+    </div>
+
+    <script>
+
+        // 文章を解析するメインの関数
+        function analyzeText() {
+
+            // 入力された文章を取得
+            const text =
+                document.getElementById("inputText").value;
+
+            // 各表示エリアを取得
+            const characterArea =
+                document.getElementById("characterArea");
+
+            const characterTable =
+                document.getElementById("characterTable");
+
+            const tokenArea =
+                document.getElementById("tokenArea");
+
+            const tokenTable =
+                document.getElementById("tokenTable");
+
+            // 前回の結果を消す
+            characterArea.innerHTML = "";
+            characterTable.innerHTML = "";
+            tokenArea.innerHTML = "";
+            tokenTable.innerHTML = "";
+
+            // --------------------------------
+            // ② 文字の数字化
+            // --------------------------------
+
+            // 文章を一文字ずつの配列にする
+            const characters = Array.from(text);
+
+            characters.forEach(function(character, index) {
+
+                // Unicode番号を10進数で取得
+                const number = character.codePointAt(0);
+
+                // Unicode番号を16進数に変換
+                const hex = number
+                    .toString(16)
+                    .toUpperCase()
+                    .padStart(4, "0");
+
+                // 文字を画面に表示する箱
+                const box = document.createElement("span");
+
+                box.className = "character";
+
+                const symbol = document.createElement("span");
+                symbol.className = "character-symbol";
+                symbol.textContent = character;
+
+                const numberText = document.createElement("span");
+                numberText.className = "character-number";
+                numberText.textContent = number;
+
+                box.appendChild(symbol);
+                box.appendChild(numberText);
+
+                characterArea.appendChild(box);
+
+                // 文字コードの表を作る
+                const row = document.createElement("tr");
+
+                const orderCell = document.createElement("td");
+                const charCell = document.createElement("td");
+                const decimalCell = document.createElement("td");
+                const hexCell = document.createElement("td");
+
+                orderCell.textContent = index + 1;
+                charCell.textContent = character;
+                decimalCell.textContent = number;
+                hexCell.textContent = "U+" + hex;
+
+                row.appendChild(orderCell);
+                row.appendChild(charCell);
+                row.appendChild(decimalCell);
+                row.appendChild(hexCell);
+
+                characterTable.appendChild(row);
+
+            });
+
+            // --------------------------------
+            // ③ トークン化
+            // --------------------------------
+
+            // 文字の種類ごとに分割する簡易方式
+            const tokens = text.match(
+                /[一-龯々〆ヵヶ]+|[ぁ-ゖ]+|[ァ-ヺー]+|[A-Za-z]+|[0-9]+|[、。！？「」『』（）.,!?]|./gu
+            ) || [];
+
+            // 空白だけの要素を除く
+            const visibleTokens = tokens.filter(
+                function(token) {
+                    return token.trim() !== "";
+                }
+            );
+
+            // トークンを一つずつ表示
+            visibleTokens.forEach(function(token, index) {
+
+                const box = document.createElement("div");
+                box.className = "token";
+
+                const tokenText = document.createElement("div");
+                tokenText.className = "token-text";
+                tokenText.textContent = token;
+
+                const tokenID = document.createElement("div");
+                tokenID.className = "token-id";
+                tokenID.textContent = "仮ID: " + (index + 1);
+
+                box.appendChild(tokenText);
+                box.appendChild(tokenID);
+
+                tokenArea.appendChild(box);
+
+                // トークンと仮IDの表を作る
+                const row = document.createElement("tr");
+
+                const orderCell = document.createElement("td");
+                const textCell = document.createElement("td");
+                const idCell = document.createElement("td");
+
+                orderCell.textContent = index + 1;
+                textCell.textContent = token;
+                idCell.textContent = index + 1;
+
+                row.appendChild(orderCell);
+                row.appendChild(textCell);
+                row.appendChild(idCell);
+
+                tokenTable.appendChild(row);
+
+            });
+
+            // トークン数を表示
+            document.getElementById("tokenCount").textContent =
+                visibleTokens.length;
+
+        }
+
+        // ページを開いたときにも実行
+        analyzeText();
+
+    </script>
+
+</body>
+</html>
